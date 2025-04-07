@@ -17,15 +17,16 @@ export default function Thread() {
   const { id } = router.query;
   const [thread, setThread] = useState<ThreadType | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [aiReply, setAiReply] = useState("");
 
   useEffect(() => {
     if (!id) return;
-    const storedThreads = localStorage.getItem("threads");
-    if (storedThreads) {
-      const threads: ThreadType[] = JSON.parse(storedThreads);
-      const t = threads.find((t) => t.id === id);
-      setThread(t || null);
+    if (typeof window !== "undefined") {
+      const storedThreads = localStorage.getItem("threads");
+      if (storedThreads) {
+        const threads: ThreadType[] = JSON.parse(storedThreads);
+        const t = threads.find((t) => t.id === id);
+        setThread(t || null);
+      }
     }
   }, [id]);
 
@@ -38,17 +39,19 @@ export default function Thread() {
       ...thread,
       messages: [
         ...thread.messages,
-        { role: "user", content: newMessage },
+        { role: "user", content: newMessage }, // `role` は "user" か "assistant" のいずれかに固定
       ],
     };
 
     setThread(updatedThread);
     setNewMessage("");
 
-    const messagesForOpenAI = updatedThread.messages.map(({ role, content }) => ({
-      role,
-      content,
-    }));
+    const messagesForOpenAI = updatedThread.messages.map(
+      ({ role, content }: Message) => ({
+        role,
+        content,
+      })
+    );
 
     const response = await fetch("/api/ask", {
       method: "POST",
@@ -65,7 +68,7 @@ export default function Thread() {
       console.error("[ERROR] OpenAIエラー:", data.error);
       reply = `AIふじたの返事ができませんでした（${data.error.message}）`;
     } else {
-      reply = data.result || "AIふじたの返事ができませんでした。";
+      reply = data.result || "AIふじたの返事ができませんでした。"; // ← ここが重要！
     }
 
     const finalThread: ThreadType = {
@@ -77,15 +80,16 @@ export default function Thread() {
     };
 
     setThread(finalThread);
-    setAiReply(reply);
 
-    const storedThreads = localStorage.getItem("threads");
-    if (storedThreads) {
-      const threads: ThreadType[] = JSON.parse(storedThreads);
-      const updatedThreads = threads.map((t) =>
-        t.id === id ? finalThread : t
-      );
-      localStorage.setItem("threads", JSON.stringify(updatedThreads));
+    if (typeof window !== "undefined") {
+      const storedThreads = localStorage.getItem("threads");
+      if (storedThreads) {
+        const threads: ThreadType[] = JSON.parse(storedThreads);
+        const updatedThreads = threads.map((t) =>
+          t.id === id ? finalThread : t
+        );
+        localStorage.setItem("threads", JSON.stringify(updatedThreads));
+      }
     }
   };
 
